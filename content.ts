@@ -1,5 +1,6 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+import { setupAutoRefresh } from "~utils/autoRefresh"
 import { clickAtElementCenter } from "~utils/clickAtElementCenter"
 import { formatAriaLabel, getTargetDate } from "~utils/targetDate"
 import { waitForTargetDateButton } from "~utils/waitForTargetDateButton"
@@ -19,21 +20,7 @@ const logPrefix = "[haleakala-sunrise]"
 const log = (...args: unknown[]) => console.log(logPrefix, ...args)
 const logError = (...args: unknown[]) => console.error(logPrefix, ...args)
 
-const reservationConfirmationPathPrefix = "/ticket/reservation/"
-
-if (!window.location.pathname.startsWith(reservationConfirmationPathPrefix)) {
-  log("Auto-refresh enabled.", {
-    everyMs: 15_000,
-    path: window.location.pathname
-  })
-  window.setInterval(() => {
-    window.location.reload()
-  }, 15_000)
-} else {
-  log("Auto-refresh disabled on reservation page.", {
-    path: window.location.pathname
-  })
-}
+void setupAutoRefresh(log)
 
 void (async () => {
   try {
