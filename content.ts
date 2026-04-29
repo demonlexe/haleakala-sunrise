@@ -15,6 +15,14 @@ export const config: PlasmoCSConfig = {
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms))
 
+const reservationConfirmationPathPrefix = "/ticket/reservation/"
+
+if (!window.location.pathname.startsWith(reservationConfirmationPathPrefix)) {
+  window.setInterval(() => {
+    window.location.reload()
+  }, 15_000)
+}
+
 void (async () => {
   const targetDate = await getTargetDate()
   const targetAriaLabel = formatAriaLabel(targetDate)
