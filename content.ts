@@ -57,12 +57,12 @@ void (async () => {
 
     clickAtElementCenter(nextMonthButton)
     nextMonthClicks += 1
-    await sleep(1000)
+    await sleep(300)
 
     targetDateBox = await waitForTargetDateButton(
       calendarGridContainer,
       targetAriaLabel,
-      1000
+      100
     )
   }
 
