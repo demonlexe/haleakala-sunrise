@@ -13,7 +13,18 @@ export const waitForTargetDateButton = async (
   while (Date.now() - startedAt < timeoutMs) {
     const targetDateButton = calendarGridContainer.querySelector(selector)
     if (targetDateButton instanceof HTMLElement) {
-      return targetDateButton
+      const isHidden =
+        targetDateButton.hidden ||
+        targetDateButton.getAttribute("hidden") !== null ||
+        targetDateButton.getAttribute("aria-hidden") === "true"
+      const isDisabled =
+        targetDateButton.getAttribute("disabled") !== null ||
+        targetDateButton.getAttribute("aria-disabled") === "true" ||
+        targetDateButton.classList.contains("is-disabled")
+
+      if (!isHidden && !isDisabled) {
+        return targetDateButton
+      }
     }
 
     await sleep(pollIntervalMs)

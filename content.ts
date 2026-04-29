@@ -15,78 +15,102 @@ export const config: PlasmoCSConfig = {
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms))
 
+const logPrefix = "[haleakala-sunrise]"
+const log = (...args: unknown[]) => console.log(logPrefix, ...args)
+const logError = (...args: unknown[]) => console.error(logPrefix, ...args)
+
 const reservationConfirmationPathPrefix = "/ticket/reservation/"
 
 if (!window.location.pathname.startsWith(reservationConfirmationPathPrefix)) {
+  log("Auto-refresh enabled.", {
+    everyMs: 15_000,
+    path: window.location.pathname
+  })
   window.setInterval(() => {
     window.location.reload()
   }, 15_000)
+} else {
+  log("Auto-refresh disabled on reservation page.", {
+    path: window.location.pathname
+  })
 }
 
 void (async () => {
-  const targetDate = await getTargetDate()
-  const targetAriaLabel = formatAriaLabel(targetDate)
+  try {
+    const targetDate = await getTargetDate()
+    const targetAriaLabel = formatAriaLabel(targetDate)
+    log("Looking for target date.", { targetDate, targetAriaLabel })
 
-  const toggleCalendarButton = await waitForElement(
-    "button.toggle-calendar-button"
-  )
-  clickAtElementCenter(toggleCalendarButton)
-  await sleep(500)
-
-  const calendarGridContainer = await waitForElement(
-    "div.calendar-grids-container"
-  )
-
-  let targetDateBox = await waitForTargetDateButton(
-    calendarGridContainer,
-    targetAriaLabel,
-    1000
-  )
-
-  const maxNextMonthClicks = 5
-  let nextMonthClicks = 0
-
-  while (!targetDateBox && nextMonthClicks < maxNextMonthClicks) {
-    const calendarHeaderGroup = await waitForElement(
-      "div.calendar-header-group"
+    const toggleCalendarButton = await waitForElement(
+      "button.toggle-calendar-button"
     )
-    const nextMonthButton = await waitForElement(
-      'button.next-prev-button[aria-label="Next"]',
-      calendarHeaderGroup
+    clickAtElementCenter(toggleCalendarButton)
+    await sleep(500)
+
+    const calendarGridContainer = await waitForElement(
+      "div.calendar-grids-container"
     )
 
-    const isNextDisabled =
-      nextMonthButton.getAttribute("disabled") !== null ||
-      nextMonthButton.getAttribute("aria-disabled") === "true"
-
-    if (isNextDisabled) {
-      throw new Error("Next month button is disabled; cannot advance calendar.")
-    }
-
-    clickAtElementCenter(nextMonthButton)
-    nextMonthClicks += 1
-    await sleep(300)
-
-    targetDateBox = await waitForTargetDateButton(
+    let targetDateBox = await waitForTargetDateButton(
       calendarGridContainer,
       targetAriaLabel,
-      100
+      1000
     )
+
+    const maxNextMonthClicks = 5
+    let nextMonthClicks = 0
+
+    while (!targetDateBox && nextMonthClicks < maxNextMonthClicks) {
+      log("Advancing to next month.", {
+        attempt: nextMonthClicks + 1,
+        maxNextMonthClicks
+      })
+      const calendarHeaderGroup = await waitForElement(
+        "div.calendar-header-group"
+      )
+      const nextMonthButton = await waitForElement(
+        'button.next-prev-button[aria-label="Next"]',
+        calendarHeaderGroup
+      )
+
+      const isNextDisabled =
+        nextMonthButton.getAttribute("disabled") !== null ||
+        nextMonthButton.getAttribute("aria-disabled") === "true"
+
+      if (isNextDisabled) {
+        throw new Error(
+          "Next month button is disabled; cannot advance calendar."
+        )
+      }
+
+      clickAtElementCenter(nextMonthButton)
+      nextMonthClicks += 1
+      await sleep(300)
+
+      targetDateBox = await waitForTargetDateButton(
+        calendarGridContainer,
+        targetAriaLabel,
+        100
+      )
+    }
+
+    if (!targetDateBox) {
+      throw new Error(
+        `Could not find target date after ${maxNextMonthClicks} next-month attempts.`
+      )
+    }
+
+    clickAtElementCenter(targetDateBox)
+    await sleep(500)
+
+    const timePill = await waitForElement("div.ti-radio-pill-time")
+    await waitUntilVisible(timePill)
+
+    const requestTicketsButton = await waitForElement("#request-tickets")
+    clickAtElementCenter(requestTicketsButton)
+    await sleep(500)
+    log("Request submitted.")
+  } catch (error) {
+    logError("Script failed.", error)
   }
-
-  if (!targetDateBox) {
-    throw new Error(
-      `Could not find target date after ${maxNextMonthClicks} next-month attempts.`
-    )
-  }
-
-  clickAtElementCenter(targetDateBox)
-  await sleep(500)
-
-  const timePill = await waitForElement("div.ti-radio-pill-time")
-  await waitUntilVisible(timePill)
-
-  const requestTicketsButton = await waitForElement("#request-tickets")
-  clickAtElementCenter(requestTicketsButton)
-  await sleep(500)
 })()
