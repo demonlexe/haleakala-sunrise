@@ -20,6 +20,29 @@ const logPrefix = "[haleakala-sunrise]"
 const log = (...args: unknown[]) => console.log(logPrefix, ...args)
 const logError = (...args: unknown[]) => console.error(logPrefix, ...args)
 
+const parseMonthYearFromHeader = (headerText: string) => {
+  const monthYearMatch = headerText.match(
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/
+  )
+
+  if (!monthYearMatch) {
+    return null
+  }
+
+  const [, monthName, yearText] = monthYearMatch
+  const parsedDate = new Date(`${monthName} 1, ${yearText}`)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null
+  }
+
+  return {
+    month: parsedDate.getMonth(),
+    year: parsedDate.getFullYear(),
+    label: `${monthName} ${yearText}`
+  }
+}
+
 void setupAutoRefresh(log)
 
 void (async () => {
@@ -32,70 +55,105 @@ void (async () => {
       "button.toggle-calendar-button"
     )
     clickAtElementCenter(toggleCalendarButton)
-    await sleep(500)
+    await sleep(200)
 
     const calendarGridContainer = await waitForElement(
       "div.calendar-grids-container"
     )
-
-    let targetDateBox = await waitForTargetDateButton(
-      calendarGridContainer,
-      targetAriaLabel,
-      1000
+    const calendarHeaderGroup = await waitForElement(
+      "div.calendar-header-group"
     )
 
-    const maxNextMonthClicks = 5
-    let nextMonthClicks = 0
+    const targetDateObject = new Date(`${targetDate}T00:00:00`)
+    if (Number.isNaN(targetDateObject.getTime())) {
+      throw new Error(`Invalid target date: ${targetDate}`)
+    }
 
-    while (!targetDateBox && nextMonthClicks < maxNextMonthClicks) {
-      log("Advancing to next month.", {
-        attempt: nextMonthClicks + 1,
-        maxNextMonthClicks
-      })
-      const calendarHeaderGroup = await waitForElement(
-        "div.calendar-header-group"
+    const targetMonth = targetDateObject.getMonth()
+    const targetYear = targetDateObject.getFullYear()
+    const maxNavigationClicks = 24
+    let navigationClicks = 0
+
+    while (navigationClicks < maxNavigationClicks) {
+      const currentHeader = parseMonthYearFromHeader(
+        calendarHeaderGroup.textContent?.trim() ?? ""
       )
-      const nextMonthButton = await waitForElement(
-        'button.next-prev-button[aria-label="Next"]',
-        calendarHeaderGroup
-      )
 
-      const isNextDisabled =
-        nextMonthButton.getAttribute("disabled") !== null ||
-        nextMonthButton.getAttribute("aria-disabled") === "true"
-
-      if (isNextDisabled) {
+      if (!currentHeader) {
         throw new Error(
-          "Next month button is disabled; cannot advance calendar."
+          `Could not parse month/year from calendar header: "${calendarHeaderGroup.textContent?.trim() ?? ""}"`
         )
       }
 
-      clickAtElementCenter(nextMonthButton)
-      nextMonthClicks += 1
-      await sleep(300)
+      const monthDelta =
+        (targetYear - currentHeader.year) * 12 +
+        (targetMonth - currentHeader.month)
 
-      targetDateBox = await waitForTargetDateButton(
-        calendarGridContainer,
-        targetAriaLabel,
-        100
+      if (monthDelta === 0) {
+        break
+      }
+
+      const goNext = monthDelta > 0
+      const buttonSelector = goNext
+        ? 'button.next-prev-button[aria-label="Next"]'
+        : 'button.next-prev-button[aria-label="Previous"]'
+      const navButton = await waitForElement(
+        buttonSelector,
+        calendarHeaderGroup
       )
+
+      const isNavDisabled =
+        navButton.getAttribute("disabled") !== null ||
+        navButton.getAttribute("aria-disabled") === "true"
+
+      if (isNavDisabled) {
+        throw new Error(
+          `${goNext ? "Next" : "Previous"} month button is disabled; cannot continue calendar navigation.`
+        )
+      }
+
+      log(`Navigating calendar ${goNext ? "forward" : "backward"}.`, {
+        currentMonth: currentHeader.label,
+        targetMonth: new Intl.DateTimeFormat("en-US", {
+          month: "long",
+          year: "numeric"
+        }).format(targetDateObject),
+        attempt: navigationClicks + 1,
+        maxNavigationClicks
+      })
+
+      clickAtElementCenter(navButton)
+      navigationClicks += 1
+      await sleep(100)
     }
 
-    if (!targetDateBox) {
+    const finalHeader = parseMonthYearFromHeader(
+      calendarHeaderGroup.textContent?.trim() ?? ""
+    )
+    const isOnTargetMonth =
+      finalHeader &&
+      finalHeader.month === targetMonth &&
+      finalHeader.year === targetYear
+
+    if (!isOnTargetMonth) {
       throw new Error(
-        `Could not find target date after ${maxNextMonthClicks} next-month attempts.`
+        `Could not navigate calendar to target month after ${navigationClicks} attempts.`
       )
     }
 
+    const targetDateBox = await waitForTargetDateButton(
+      calendarGridContainer,
+      targetAriaLabel
+    )
     clickAtElementCenter(targetDateBox)
-    await sleep(500)
+    await sleep(200)
 
     const timePill = await waitForElement("div.ti-radio-pill-time")
     await waitUntilVisible(timePill)
 
     const requestTicketsButton = await waitForElement("#request-tickets")
     clickAtElementCenter(requestTicketsButton)
-    await sleep(500)
+    await sleep(200)
     log("Request submitted.")
   } catch (error) {
     logError("Script failed.", error)

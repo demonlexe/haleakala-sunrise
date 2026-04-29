@@ -4,13 +4,16 @@ const sleep = (ms: number) =>
 export const waitForTargetDateButton = async (
   calendarGridContainer: HTMLElement,
   targetAriaLabel: string,
-  timeoutMs: number
+  timeoutMs = Number.POSITIVE_INFINITY
 ) => {
   const selector = `div[aria-label*="${targetAriaLabel}"]`
   const pollIntervalMs = 200
   const startedAt = Date.now()
 
-  while (Date.now() - startedAt < timeoutMs) {
+  while (
+    timeoutMs === Number.POSITIVE_INFINITY ||
+    Date.now() - startedAt < timeoutMs
+  ) {
     const targetDateButton = calendarGridContainer.querySelector(selector)
     if (targetDateButton instanceof HTMLElement) {
       const isHidden =
