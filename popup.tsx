@@ -44,6 +44,16 @@ function IndexPopup() {
         value={selectedDate}
         onChange={(e) => onDateChange(e.target.value)}
       />
+      <a
+        href="https://www.recreation.gov/ticket/253731/ticket/255"
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          display: "block",
+          marginTop: 14
+        }}>
+        Open Recreation.gov page
+      </a>
     </div>
   )
 }
