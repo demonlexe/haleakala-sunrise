@@ -1,6 +1,6 @@
 export function waitForElement(
   selector: string,
-  customDom?: Document
+  customDom?: Document | Element
 ): Promise<HTMLElement> {
   const parseSelector = (fullSelector: string) => {
     const containsRegex = /:contains\(['"](.+?)['"]\)/
@@ -38,7 +38,12 @@ export function waitForElement(
       }
     })
 
-    observer.observe(dom.body, {
+    const observeRoot = dom instanceof Document ? dom.body : dom
+    if (!observeRoot) {
+      return
+    }
+
+    observer.observe(observeRoot, {
       childList: true,
       subtree: true
     })
